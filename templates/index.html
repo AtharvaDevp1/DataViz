@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1a1a2e">
+  <title>DataViz — CSV Data Visualization</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet"
+       href="{{ url_for('static', filename='style.css') }}">
+  <script>
+    (function () {
+      var saved = localStorage.getItem("dataviz-theme");
+      var theme = saved || (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
+</head>
+<body data-max-mb="{{ max_mb }}">
+
+  <!-- Theme Toggle Floating Pill -->
+  <div class="theme-toggle-wrap">
+    <button type="button" id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle light/dark theme" title="Toggle theme">
+      <span class="toggle-icon-wrap" aria-hidden="true">
+        <svg class="sun-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+        <svg class="moon-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </span>
+      <span class="theme-status" id="theme-status">Light Mode</span>
+    </button>
+  </div>
+
+  <header class="masthead">
+    <div class="hero-shapes">
+      <div class="shape shape-1"></div>
+      <div class="shape shape-2"></div>
+      <div class="shape shape-3"></div>
+    </div>
+    <div class="wrap">
+      <h1>DataViz</h1>
+      <p class="hero-subtitle">Transform your data into stunning visualizations</p>
+      <p class="hero-desc">Upload CSV or Excel files and instantly create beautiful pie charts, bar graphs, scatter plots, line graphs, and histograms — powered by Pandas &amp; Plotly.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+
+    <!-- 1. Upload -->
+    <section class="panel" aria-labelledby="upload-title">
+      <h2 class="panel-title" id="upload-title"><span class="step" aria-hidden="true">1</span>Upload Your Data</h2>
+
+      <div id="dropzone" class="dropzone">
+        <svg class="dz-icon" viewBox="0 0 48 48" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M24 32V10M15 19l9-9 9 9M8 32v6a2 2 0 0 0 2 2h28a2 2 0 0 0 2-2v-6"/>
+        </svg>
+        <p class="dz-title">Drag & drop your file here</p>
+        <p class="dz-hint">
+          Supports CSV, XLSX & XLS files up to {{ max_mb }} MB
+        </p>
+        <button type="button" id="choose-btn" class="btn btn-secondary">Browse Files</button>
+        <input type="file" id="file-input" accept=".csv,.xlsx,.xls" hidden>
+      </div>
+
+      <div class="file-row">
+        <p class="file-name" id="file-name">No file selected</p>
+        <button type="button" id="upload-btn" class="btn btn-primary" disabled>Upload & Analyze</button>
+      </div>
+      <div id="upload-message"></div>
+    </section>
+
+    <!-- 2. Preview -->
+    <section class="panel" id="preview-section" aria-labelledby="preview-title" hidden>
+      <h2 class="panel-title" id="preview-title"><span class="step" aria-hidden="true">2</span>Data Preview</h2>
+
+      <dl class="stats" id="stats"></dl>
+
+      <div class="preview-grid">
+        <div>
+          <h3>Columns</h3>
+          <div class="table-wrap small">
+            <table class="data-table" id="column-table">
+              <thead><tr><th>Column</th><th>Type</th><th class="num">Missing</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <h3 id="preview-heading">First rows</h3>
+          <div class="table-wrap">
+            <table class="data-table" id="preview-table">
+              <thead></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Chart builder -->
+    <section class="panel" id="chart-section" aria-labelledby="chart-title" hidden>
+      <h2 class="panel-title" id="chart-title"><span class="step" aria-hidden="true">3</span>Build Your Visualization</h2>
+
+      <div class="builder">
+        <div class="controls">
+          <div class="field">
+            <label for="chart-type">Chart type</label>
+            <select id="chart-type">
+              <option value="bar">Bar graph</option>
+              <option value="pie">Pie chart</option>
+              <option value="scatter">Scatter plot</option>
+              <option value="line">Line graph</option>
+              <option value="histogram">Histogram</option>
+            </select>
+            <p class="field-hint" id="chart-hint"></p>
+          </div>
+
+          <div class="field" id="x-field">
+            <label for="x-col" id="x-label">Category column</label>
+            <select id="x-col"></select>
+          </div>
+
+          <div class="field" id="y-field">
+            <label for="y-col" id="y-label">Value column</label>
+            <select id="y-col"></select>
+          </div>
+
+          <div class="field" id="agg-field">
+            <label for="agg">Calculate</label>
+            <select id="agg">
+              <option value="sum">Sum</option>
+              <option value="mean">Average</option>
+              <option value="count">Count</option>
+            </select>
+          </div>
+
+          <div class="button-stack">
+            <button type="button" id="generate-btn" class="btn btn-primary">Generate Visualization</button>
+            <button type="button" id="download-btn" class="btn btn-secondary" disabled>Export as PNG</button>
+          </div>
+          <div id="chart-message"></div>
+        </div>
+
+        <div class="chart-column">
+          <div class="chart-box">
+            <div class="chart-empty" id="chart-empty">
+              <p>Select your chart type and columns, then click <strong>Generate Visualization</strong>.<br>Your chart will appear here.</p>
+            </div>
+            <div id="chart" hidden></div>
+          </div>
+          <p class="chart-note" id="chart-note" hidden></p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="wrap site-footer">
+    <p>DataViz — Built with Flask, Pandas & Plotly</p>
+  </footer>
+
+  <!-- Loading indicator -->
+  <div class="loading" id="loading" hidden>
+    <div class="loading-box" role="status">
+      <div class="spinner" aria-hidden="true"></div>
+      <p id="loading-text">Working…</p>
+    </div>
+  </div>
+
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+   <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
